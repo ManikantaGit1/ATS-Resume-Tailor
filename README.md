@@ -73,6 +73,8 @@ ipconfig getifaddr en1
 
 ```text
 http://<your-laptop-ip>:8501
+cd /ATS-Resume-Tailor
+venv/bin/streamlit run app.py
 ```
 
 You can also try the Bonjour hostname:

@@ -99,6 +99,13 @@ def render_score_scanner(score: int, original_score: int) -> None:
               gap: 22px;
               align-items: center;
             }}
+            .score-label {{
+              font-size: 12px;
+              color: #667085;
+              text-transform: uppercase;
+              letter-spacing: 0.08em;
+              margin-bottom: 6px;
+            }}
             .gauge {{
               --score: {safe_score};
               width: 150px;
@@ -138,8 +145,28 @@ def render_score_scanner(score: int, original_score: int) -> None:
               margin-top: 8px;
             }}
             @media (max-width: 720px) {{
-              .scan-wrap, .score-panel {{
+              .scan-wrap {{
                 grid-template-columns: 1fr;
+              }}
+              .scanner {{
+                display: none;
+              }}
+              .score-panel {{
+                width: 100%;
+                box-sizing: border-box;
+              }}
+              .score-copy h3 {{
+                font-size: 16px;
+                line-height: 1.2;
+              }}
+              .score-copy p {{
+                font-size: 13px;
+              }}
+              .score-panel {{
+                display: grid;
+                grid-template-columns: 1fr;
+                gap: 14px;
+                padding: 16px;
               }}
               .gauge {{
                 margin: 0 auto;
@@ -165,15 +192,17 @@ def render_score_scanner(score: int, original_score: int) -> None:
           <div class="score-panel">
             <div class="gauge"><strong>{safe_score}%</strong></div>
             <div class="score-copy">
-              <h3>Internal ATS Scan</h3>
-              <p>Original resume score: <strong>{safe_original}%</strong></p>
-              <p>Generated resume score: <strong>{safe_score}%</strong></p>
+              <div class="score-label">Internal match heuristic</div>
+              <h3>Source vs generated resume</h3>
+              <p>Source resume score against this JD: <strong>{safe_original}%</strong></p>
+              <p>Generated resume score against this JD: <strong>{safe_score}%</strong></p>
               <div class="delta">Score movement: {delta_text} points</div>
+              <p>This is a local heuristic, not a real ATS score from a hiring system.</p>
             </div>
           </div>
         </div>
         """,
-        height=320,
+        height=460,
     )
 
 
@@ -332,7 +361,7 @@ with left:
 with right:
     st.subheader("Result")
     if "resume_package" not in st.session_state:
-        st.info("Generated resume, score, and change details will appear here.")
+        st.info("Generated resume, score, and change details will appear here. The score is an internal match heuristic.")
 
 if generate:
     if not uploaded_resume:
@@ -368,6 +397,69 @@ package = st.session_state.get("resume_package")
 if package:
     score = package.get("score", 0)
     original_score = package.get("original_score", 0)
+    if package.get("tailoring_decision"):
+        st.warning(package["tailoring_decision"])
+    st.markdown(
+        f"""
+        <style>
+          @media (max-width: 720px) {{
+            .score-mobile-summary {{
+              display: grid !important;
+              gap: 10px;
+              margin-bottom: 12px;
+            }}
+            .score-mobile-tile {{
+              background: #111827;
+              border: 1px solid #374151;
+              border-radius: 12px;
+              padding: 12px 14px;
+            }}
+            .score-mobile-tile .label {{
+              font-size: 11px;
+              text-transform: uppercase;
+              letter-spacing: 0.08em;
+              color: #9ca3af;
+              margin-bottom: 4px;
+            }}
+            .score-mobile-tile .value {{
+              font-size: 24px;
+              font-weight: 700;
+              color: #f9fafb;
+              line-height: 1.1;
+            }}
+            .score-mobile-tile .sub {{
+              margin-top: 6px;
+              color: #d1d5db;
+              font-size: 13px;
+              line-height: 1.35;
+            }}
+          }}
+          @media (min-width: 721px) {{
+            .score-mobile-summary {{
+              display: none !important;
+            }}
+          }}
+        </style>
+        <div class="score-mobile-summary">
+          <div class="score-mobile-tile">
+            <div class="label">Source score</div>
+            <div class="value">{original_score}%</div>
+            <div class="sub">Score of the uploaded resume against the job description.</div>
+          </div>
+          <div class="score-mobile-tile">
+            <div class="label">Final score</div>
+            <div class="value">{score}%</div>
+            <div class="sub">Score of the kept version after tailoring decisions.</div>
+          </div>
+          <div class="score-mobile-tile">
+            <div class="label">Change</div>
+            <div class="value">{score - original_score:+d}</div>
+            <div class="sub">Positive means tailoring helped. Negative means the original was better.</div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     render_score_scanner(score, original_score)
 
     render_browser_download_button(
@@ -377,7 +469,7 @@ if package:
 
     if package.get("local_path"):
         st.success("A copy was saved locally.")
-        st.code(package["local_path"])
+        st.text(package["local_path"])
 
     preview_tab, changes_tab, scan_tab = st.tabs(["Generated Resume", "Modified Details", "ATS Verification"])
 
@@ -401,6 +493,7 @@ if package:
 
     with scan_tab:
         scan = package.get("scan", {})
+        st.caption("This panel shows an internal heuristic for keyword and structure match. It is not an external ATS score.")
         metric_cols = st.columns(5)
         metric_cols[0].metric("Keyword", f"{scan.get('keyword_score', 0)}%")
         metric_cols[1].metric("Similarity", f"{scan.get('similarity_score', 0)}%")
@@ -418,4 +511,17 @@ if package:
         for recommendation in scan.get("recommendations", []):
             st.write(f"- {recommendation}")
 
+        if package.get("tailoring_decision"):
+            st.markdown("**Tailoring decision**")
+            st.write(package["tailoring_decision"])
+
         st.caption(package.get("disclaimer", ""))
+
+st.markdown(
+    """
+    <div style="margin-top: 2rem; padding: 1rem 0 0.5rem; border-top: 1px solid rgba(148, 163, 184, 0.25); color: #667085; font-size: 0.9rem; text-align: center;">
+      Developed by Manikanta Uttarkar | Contact: <a href="mailto:ukantesh@icloud.com">ukantesh@icloud.com</a>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)

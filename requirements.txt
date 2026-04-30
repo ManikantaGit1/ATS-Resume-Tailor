@@ -2,4 +2,4 @@ streamlit
 pymupdf
 python-docx
 scikit-learn
-google-genai
+# Optional: install google-genai separately if you want Gemini-backed generation.

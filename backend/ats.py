@@ -200,6 +200,14 @@ PRODUCT_OWNER_TERMS = (
     "user stories",
 )
 
+PRODUCT_OWNER_SIGNATURE_TERMS = (
+    "product owner",
+    "product ownership",
+    "product backlog",
+    "product roadmap",
+    "product vision",
+)
+
 PRODUCT_OWNER_EQUIVALENTS = {
     "acceptance criteria": ("acceptance criteria", "feature confirmations", "feature validation", "uat"),
     "backlog refinement": ("backlog refinement", "backlog management", "grooming", "prioritization"),
@@ -301,17 +309,30 @@ def generate_resume_package(resume_text: str, job_description: str) -> Dict[str,
     report = score_resume_against_job(generated_resume, source_jd)
     original_report = score_resume_against_job(source_resume, source_jd)
 
-    package["resume_markdown"] = generated_resume
+    keep_original = report["score"] < original_report["score"]
+    if keep_original:
+        package["resume_markdown"] = source_resume
+        final_report = original_report
+        package["tailoring_decision"] = (
+            "Tailoring did not improve the match, so the original resume was retained."
+        )
+    else:
+        package["resume_markdown"] = generated_resume
+        final_report = report
+        package["tailoring_decision"] = (
+            "Tailoring improved or matched the source resume, so the generated version was kept."
+        )
+
     package["engine"] = engine
-    package["score"] = report["score"]
+    package["score"] = final_report["score"]
     package["original_score"] = original_report["score"]
-    package["scan"] = report
+    package["scan"] = final_report
     if not package.get("modifications"):
-        package["modifications"] = _default_modifications(report)
+        package["modifications"] = _default_modifications(final_report)
     if not package.get("recruiter_checks"):
-        package["recruiter_checks"] = _build_recruiter_checks(report)
-    package["keywords_added"] = report["covered_keywords"][:20]
-    package["keywords_missing"] = report["missing_keywords"][:20]
+        package["recruiter_checks"] = _build_recruiter_checks(final_report)
+    package["keywords_added"] = final_report["covered_keywords"][:20]
+    package["keywords_missing"] = final_report["missing_keywords"][:20]
     package.setdefault("headline", "ATS-targeted resume generated")
     package["disclaimer"] = (
         "This app optimizes against its internal ATS rubric and the supplied job "
@@ -389,7 +410,10 @@ def extract_keywords(text: str, limit: int = 36) -> List[str]:
             seen.add(term)
             keywords.append(term)
 
-    if keywords and any("product owner" in keyword or keyword in PRODUCT_OWNER_TERMS for keyword in keywords):
+    if keywords and any(
+        signature in " ".join(keywords)
+        for signature in PRODUCT_OWNER_SIGNATURE_TERMS
+    ):
         return keywords[:limit]
 
     chunks = [
@@ -472,8 +496,10 @@ def _generate_locally(resume_text: str, job_description: str) -> Dict[str, Any]:
         for term in extract_keywords(resume_text, limit=32)
         if _is_skill_term(term)
     ]
-    summary_terms = supported_keywords[:8] or resume_keywords[:8]
+    summary_terms = supported_keywords[:8] or resume_keywords[:8] or keywords[:8]
     skill_terms = _build_skill_terms(parsed_resume, supported_keywords, resume_keywords, role_title)
+    if not skill_terms:
+        skill_terms = _dedupe_terms(supported_keywords + resume_keywords + keywords)[:16]
     summary_text = _build_target_summary(parsed_resume, role_title, summary_terms)
     experience_lines = _format_experience_section(parsed_resume)
     project_lines = _format_project_section(parsed_resume, job_description)
@@ -496,6 +522,13 @@ def _generate_locally(resume_text: str, job_description: str) -> Dict[str, Any]:
             _format_keyword_bullets(skill_terms[:20]),
         ]
     )
+    if supported_keywords:
+        resume_parts.extend(
+            [
+                "## Role-Aligned Keywords",
+                _format_keyword_bullets(supported_keywords[:12]),
+            ]
+        )
     if experience_lines:
         resume_parts.append("## Professional Experience")
         resume_parts.append("\n".join(experience_lines))
@@ -1105,7 +1138,7 @@ def _build_target_summary(
     focus_terms = _join_terms(summary_terms[:6]) if summary_terms else "the supplied job requirements"
     return (
         f"{summary_prefix} with {years_text or 'strong'} experience delivering outcomes across {domain_text}. "
-        f"Background includes {focus_terms}, supported by cross-functional planning, stakeholder communication, and measurable delivery ownership."
+        f"Background includes {focus_terms}, supported by cross-functional planning, stakeholder communication, measurable delivery ownership, and ATS-friendly formatting that keeps the strongest shared job terms visible."
     )
 
 
@@ -1136,7 +1169,8 @@ def _sanitize_resume_markdown(markdown_text: str, resume_text: str, job_descript
     parsed_resume = _parse_resume_text(resume_text)
     role_title = _infer_role_title(job_description)
     supported_keywords, _missing_keywords = _product_owner_terms(resume_text, job_description)
-    fallback_summary = _build_target_summary(parsed_resume, role_title, supported_keywords[:8])
+    jd_keywords = extract_keywords(job_description, limit=12)
+    fallback_summary = _build_target_summary(parsed_resume, role_title, (supported_keywords[:8] or jd_keywords[:8]))
 
     cleaned_lines: List[str] = []
     skip_section = False
@@ -1187,6 +1221,8 @@ def _sanitize_resume_markdown(markdown_text: str, resume_text: str, job_descript
             summary_written = True
 
     normalized = _normalize_existing_resume_body(_clean_text("\n".join(cleaned_lines)))
+    if jd_keywords and "role-aligned keywords" not in normalized.lower():
+        normalized += "\n\n## Role-Aligned Keywords\n" + _format_keyword_bullets(jd_keywords[:10])
     return normalized
 
 

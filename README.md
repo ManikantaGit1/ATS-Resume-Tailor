@@ -5,7 +5,7 @@ Streamlit app that takes a resume plus a job description and generates a tailore
 ## Run locally
 
 ```bash
-cd /Users/shrumani/Downloads/uttarkar-job-assistant-jd
+cd /ATS-Resume-Tailor
 venv/bin/streamlit run app.py
 ```
 

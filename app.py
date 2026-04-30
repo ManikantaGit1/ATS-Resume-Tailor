@@ -14,6 +14,10 @@ from backend.ats import generate_resume_package
 from backend.document import resume_markdown_to_docx
 from backend.parser import extract_text_from_resume
 
+st.markdown(
+    '<meta name="google-site-verification" content="googlef776f505de918a5e">',
+    unsafe_allow_html=True
+)
 
 if __name__ == "__main__" and not streamlit_runtime.exists():
     print("This app must be started with Streamlit.")

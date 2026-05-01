@@ -1,3 +1,7 @@
 [server]
 enableStaticServing = true
 address = "0.0.0.0"
+
+[browser]
+serverAddress = "localhost"
+serverPort = 8501

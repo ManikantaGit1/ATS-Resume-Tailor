@@ -14,6 +14,8 @@ from backend.ats import generate_resume_package
 from backend.document import resume_markdown_to_docx
 from backend.parser import extract_text_from_resume
 
+st.set_page_config(page_title="ATS Resume Tailor", layout="wide")
+
 st.markdown(
     '<meta name="google-site-verification" content="googlef776f505de918a5e">',
     unsafe_allow_html=True
@@ -25,9 +27,6 @@ if __name__ == "__main__" and not streamlit_runtime.exists():
     print("Run:")
     print("  venv/bin/streamlit run app.py")
     sys.exit(0)
-
-
-st.set_page_config(page_title="ATS Resume Tailor", layout="wide")
 OUTPUT_DIR = Path(__file__).resolve().parent / "generated_resumes"
 DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
